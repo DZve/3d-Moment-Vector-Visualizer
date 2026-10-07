@@ -1,0 +1,560 @@
+<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#faf9f5;color:#141413}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
+<title>Moment Vector Visualizer</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+<style>
+/* Layout: inputs and readouts in a left column, one large orbitable 3D stage on the right; stacks on phones. */
+:root {
+  --bg: #f1f4f8;
+  --panel: #ffffff;
+  --fg: #172033;
+  --muted: #5d6b82;
+  --line: #d5dce7;
+  --accent: #d4600c;
+  --accent-soft: #fbe7d8;
+  --ax-x: #d23b3b;
+  --ax-y: #2f9a4f;
+  --ax-z: #2f6fd6;
+  --grid: #c3ccda;
+  --stage: #e9eef5;
+  --font-sans: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0f141d;
+    --panel: #171e2b;
+    --fg: #e6ebf3;
+    --muted: #93a1b8;
+    --line: #2b3548;
+    --accent: #ff9a45;
+    --accent-soft: #3a2a1d;
+    --ax-x: #ff6b6b;
+    --ax-y: #5fd17e;
+    --ax-z: #6aa2ff;
+    --grid: #2c374b;
+    --stage: #0c1119;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0f141d;
+  --panel: #171e2b;
+  --fg: #e6ebf3;
+  --muted: #93a1b8;
+  --line: #2b3548;
+  --accent: #ff9a45;
+  --accent-soft: #3a2a1d;
+  --ax-x: #ff6b6b;
+  --ax-y: #5fd17e;
+  --ax-z: #6aa2ff;
+  --grid: #2c374b;
+  --stage: #0c1119;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+body {
+  background: var(--bg);
+  color: var(--fg);
+  font-family: var(--font-sans);
+  font-size: 14px;
+  line-height: 1.45;
+  padding-inline: 16px;
+  padding-block: 20px 32px;
+}
+.wrap { max-width: 1180px; margin-inline: auto; display: flex; flex-direction: column; gap: 16px; }
+header h1 { font-size: 1.35rem; font-weight: 600; margin: 0; letter-spacing: -0.01em; text-wrap: balance; }
+header p { margin: 4px 0 0; color: var(--muted); max-width: 62ch; }
+.app { display: grid; grid-template-columns: minmax(280px, 360px) minmax(0, 1fr); gap: 16px; align-items: start; }
+@media (max-width: 860px) { .app { grid-template-columns: minmax(0, 1fr); } }
+.col { display: flex; flex-direction: column; gap: 16px; min-width: 0; }
+.card { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 16px; min-width: 0; }
+.card h2 { font-size: 0.72rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.09em; color: var(--muted); margin: 0 0 12px; }
+
+.inputs { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
+.field { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.field label { font-family: var(--font-mono); font-size: 0.8rem; font-weight: 500; display: flex; align-items: center; gap: 6px; }
+.field label i { width: 9px; height: 9px; border-radius: 50%; display: inline-block; }
+.field input, .unit select {
+  width: 100%; min-width: 0; font: inherit; font-family: var(--font-mono); font-size: 1rem;
+  color: var(--fg); background: var(--bg); border: 1px solid var(--line); border-radius: 6px; padding: 8px 8px;
+  font-variant-numeric: tabular-nums;
+}
+.field input:focus-visible, .unit select:focus-visible, button:focus-visible, canvas:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.row2 { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-top: 12px; }
+.unit { display: flex; align-items: center; gap: 8px; color: var(--muted); }
+.unit select { width: auto; font-size: 0.9rem; padding: 6px 8px; }
+.chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 12px; }
+button.chip, button.tool {
+  font: inherit; font-size: 0.8rem; color: var(--fg); background: var(--bg); border: 1px solid var(--line);
+  border-radius: 999px; padding: 5px 11px; cursor: pointer;
+}
+button.chip:hover, button.tool:hover { border-color: var(--accent); }
+.hint { margin: 10px 0 0; color: var(--muted); font-size: 0.78rem; }
+
+.mag { display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; }
+.mag b { font-family: var(--font-mono); font-size: 2rem; font-weight: 600; font-variant-numeric: tabular-nums; color: var(--accent); letter-spacing: -0.02em; }
+.mag span { color: var(--muted); font-family: var(--font-mono); }
+dl.kv { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 6px 14px; margin: 12px 0 0; }
+dl.kv dt { color: var(--muted); }
+dl.kv dd { margin: 0; font-family: var(--font-mono); font-variant-numeric: tabular-nums; text-align: right; overflow-wrap: anywhere; }
+.spin { display: flex; gap: 12px; align-items: flex-start; background: var(--accent-soft); border-radius: 8px; padding: 12px; }
+.spin .glyph { font-size: 1.9rem; line-height: 1; color: var(--accent); font-family: var(--font-sans); }
+.spin strong { display: block; font-size: 1rem; }
+.spin p { margin: 4px 0 0; color: var(--muted); font-size: 0.82rem; }
+.comp { width: 100%; border-collapse: collapse; margin-top: 12px; font-size: 0.82rem; }
+.comp td { padding: 6px 0; border-top: 1px solid var(--line); vertical-align: top; }
+.comp td:first-child { font-family: var(--font-mono); white-space: nowrap; padding-right: 10px; font-variant-numeric: tabular-nums; }
+.comp td:last-child { color: var(--muted); }
+
+.stage-card { padding: 0; overflow: hidden; }
+.stage { position: relative; height: clamp(380px, 66vh, 680px); background: var(--stage); }
+.stage canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; touch-action: none; cursor: grab; }
+.stage canvas:active { cursor: grabbing; }
+.stage .badge {
+  position: absolute; left: 12px; top: 12px; font-family: var(--font-mono); font-size: 0.75rem; color: var(--muted);
+  background: var(--panel); border: 1px solid var(--line); border-radius: 6px; padding: 4px 8px; pointer-events: none;
+}
+.toolbar { display: flex; flex-wrap: wrap; gap: 8px 16px; align-items: center; justify-content: space-between; padding: 12px 16px; border-top: 1px solid var(--line); }
+.toggles { display: flex; flex-wrap: wrap; gap: 6px 16px; }
+.toggles label { display: inline-flex; gap: 6px; align-items: center; cursor: pointer; }
+.toggles input { accent-color: var(--accent); width: 16px; height: 16px; }
+.legend { display: flex; flex-wrap: wrap; gap: 6px 16px; padding: 0 16px 14px; color: var(--muted); font-size: 0.78rem; }
+.legend span { display: inline-flex; align-items: center; gap: 6px; }
+.legend i { display: inline-block; width: 16px; height: 0; border-top: 3px solid var(--accent); }
+.legend i.dash { border-top: 2px dashed var(--muted); }
+.legend i.x { border-color: var(--ax-x); } .legend i.y { border-color: var(--ax-y); } .legend i.z { border-color: var(--ax-z); }
+</style>
+
+<div class="wrap">
+  <header>
+    <h1>Moment Vector Visualizer</h1>
+    <p>Enter the x, y and z components of a moment. The page draws the resultant moment vector and the direction it spins the body, using the right-hand rule.</p>
+  </header>
+
+  <div class="app">
+    <div class="col">
+      <section class="card" aria-label="Moment components">
+        <h2>Moment components</h2>
+        <div class="inputs">
+          <div class="field"><label for="mx"><i style="background:var(--ax-x)"></i>Mx</label><input id="mx" type="number" step="any" inputmode="decimal" value="3"></div>
+          <div class="field"><label for="my"><i style="background:var(--ax-y)"></i>My</label><input id="my" type="number" step="any" inputmode="decimal" value="-2"></div>
+          <div class="field"><label for="mz"><i style="background:var(--ax-z)"></i>Mz</label><input id="mz" type="number" step="any" inputmode="decimal" value="4"></div>
+        </div>
+        <div class="row2">
+          <label class="unit" for="unit">Units
+            <select id="unit">
+              <option>kN·m</option><option>N·m</option><option>kip·ft</option><option>lb·ft</option><option>lb·in</option>
+            </select>
+          </label>
+        </div>
+        <div class="chips" role="group" aria-label="Example moments">
+          <button class="chip" data-v="3,-2,4">Mixed</button>
+          <button class="chip" data-v="5,0,0">Mx only</button>
+          <button class="chip" data-v="0,5,0">My only</button>
+          <button class="chip" data-v="0,0,-5">Negative Mz</button>
+          <button class="chip" data-v="-4,3,2">Negative Mx</button>
+        </div>
+        <p class="hint">The starting values are an example. Positive components follow +x, +y, +z.</p>
+      </section>
+
+      <section class="card" aria-label="Resultant moment">
+        <h2>Resultant moment</h2>
+        <div class="mag"><b id="mag">0</b><span id="magUnit">kN·m</span></div>
+        <dl class="kv">
+          <dt>Unit vector</dt><dd id="unitVec">0, 0, 0</dd>
+          <dt>Angle to +x</dt><dd id="angX">–</dd>
+          <dt>Angle to +y</dt><dd id="angY">–</dd>
+          <dt>Angle to +z</dt><dd id="angZ">–</dd>
+        </dl>
+      </section>
+
+      <section class="card" aria-label="Spinning direction">
+        <h2>Spinning direction</h2>
+        <div class="spin"><div class="glyph" id="glyph">↺</div><div><strong id="spinTitle">Counterclockwise</strong><p id="spinText"></p></div></div>
+        <table class="comp" id="compTable"><tbody></tbody></table>
+      </section>
+    </div>
+
+    <section class="card stage-card" aria-label="3D view">
+      <div class="stage" id="stage">
+        <canvas id="cv" tabindex="0" aria-label="3D moment view. Drag to rotate, scroll or pinch to zoom, arrow keys to rotate."></canvas>
+        <div class="badge" id="scaleBadge">scale</div>
+      </div>
+      <div class="toolbar">
+        <div class="toggles">
+          <label><input type="checkbox" id="tComps" checked>Components</label>
+          <label><input type="checkbox" id="tSpin" checked>Spin arrow</label>
+          <label><input type="checkbox" id="tCompSpin">Component spins</label>
+        </div>
+        <button class="tool" id="reset">Reset view</button>
+      </div>
+      <div class="legend">
+        <span><i></i>Resultant M (double head, the moment convention)</span>
+        <span><i class="dash"></i>Components</span>
+        <span><i class="x"></i>x</span><span><i class="y"></i>y</span><span><i class="z"></i>z (up)</span>
+      </div>
+    </section>
+  </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+(function () {
+  var $ = function (id) { return document.getElementById(id); };
+  var state = { x: 3, y: -2, z: 4, unit: 'kN·m' };
+
+  /* Engineering frame is right-handed with z up. Three.js is Y-up, so (x, y, z) -> (x, z, -y). */
+  function E(x, y, z) { return new THREE.Vector3(x, z, -y); }
+
+  function fmt(v, d) {
+    if (d === undefined) d = 3;
+    if (Math.abs(v) < 1e-12) v = 0;
+    return v.toLocaleString('en-US', { maximumFractionDigits: d });
+  }
+  function niceCeil(v) {
+    if (v <= 0) return 1;
+    var p = Math.pow(10, Math.floor(Math.log10(v)));
+    var f = v / p;
+    return (f <= 1 ? 1 : f <= 2 ? 2 : f <= 5 ? 5 : 10) * p;
+  }
+
+  var colors = {};
+  function readColors() {
+    var cs = getComputedStyle(document.documentElement);
+    ['accent', 'ax-x', 'ax-y', 'ax-z', 'grid', 'fg', 'muted'].forEach(function (n) {
+      colors[n] = cs.getPropertyValue('--' + n).trim() || '#888888';
+    });
+  }
+  readColors();
+
+  /* ---------- three.js setup ---------- */
+  var canvas = $('cv'), stage = $('stage');
+  var renderer = new THREE.WebGLRenderer({ canvas: canvas, antialias: true, alpha: true });
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+  var scene = new THREE.Scene();
+  var camera = new THREE.PerspectiveCamera(40, 1, 0.1, 100);
+  scene.add(new THREE.AmbientLight(0xffffff, 0.8));
+  var sun = new THREE.DirectionalLight(0xffffff, 0.55);
+  sun.position.set(5, 9, 6);
+  scene.add(sun);
+  var world = new THREE.Group();
+  scene.add(world);
+
+  var DEF = { az: 0.8, el: 0.45, dist: 13 };
+  var az = DEF.az, el = DEF.el, dist = DEF.dist;
+  function placeCam() {
+    camera.position.set(dist * Math.cos(el) * Math.sin(az), dist * Math.sin(el), dist * Math.cos(el) * Math.cos(az));
+    camera.lookAt(0, 0, 0);
+  }
+  function resize() {
+    var w = stage.clientWidth, h = stage.clientHeight;
+    if (!w || !h) return;
+    renderer.setSize(w, h, false);
+    camera.aspect = w / h;
+    camera.updateProjectionMatrix();
+  }
+  if (window.ResizeObserver) new ResizeObserver(resize).observe(stage);
+  window.addEventListener('resize', resize);
+
+  /* ---------- orbit controls (drag, pinch, wheel, keys) ---------- */
+  var pointers = {}, lastPinch = 0;
+  canvas.addEventListener('pointerdown', function (e) {
+    canvas.setPointerCapture(e.pointerId);
+    pointers[e.pointerId] = { x: e.clientX, y: e.clientY };
+    lastPinch = 0;
+  });
+  canvas.addEventListener('pointermove', function (e) {
+    var p = pointers[e.pointerId];
+    if (!p) return;
+    var ids = Object.keys(pointers);
+    if (ids.length === 1) {
+      az -= (e.clientX - p.x) * 0.008;
+      el = Math.max(-1.45, Math.min(1.45, el + (e.clientY - p.y) * 0.008));
+    }
+    p.x = e.clientX; p.y = e.clientY;
+    if (ids.length === 2) {
+      var a = pointers[ids[0]], b = pointers[ids[1]];
+      var d = Math.hypot(a.x - b.x, a.y - b.y);
+      if (lastPinch) dist = Math.max(6, Math.min(30, dist * (lastPinch / d)));
+      lastPinch = d;
+    }
+    placeCam();
+  });
+  function endPtr(e) { delete pointers[e.pointerId]; lastPinch = 0; }
+  canvas.addEventListener('pointerup', endPtr);
+  canvas.addEventListener('pointercancel', endPtr);
+  canvas.addEventListener('wheel', function (e) {
+    e.preventDefault();
+    dist = Math.max(6, Math.min(30, dist * Math.exp(e.deltaY * 0.0012)));
+    placeCam();
+  }, { passive: false });
+  canvas.addEventListener('keydown', function (e) {
+    var k = e.key, used = true;
+    if (k === 'ArrowLeft') az += 0.08;
+    else if (k === 'ArrowRight') az -= 0.08;
+    else if (k === 'ArrowUp') el = Math.min(1.45, el + 0.06);
+    else if (k === 'ArrowDown') el = Math.max(-1.45, el - 0.06);
+    else if (k === '+' || k === '=') dist = Math.max(6, dist * 0.92);
+    else if (k === '-') dist = Math.min(30, dist * 1.08);
+    else used = false;
+    if (used) { e.preventDefault(); placeCam(); }
+  });
+  $('reset').addEventListener('click', function () { az = DEF.az; el = DEF.el; dist = DEF.dist; placeCam(); });
+
+  /* ---------- geometry helpers ---------- */
+  var UP = new THREE.Vector3(0, 1, 0);
+
+  function arrow(from, to, color, o) {
+    o = o || {};
+    var shaftR = o.shaft || 0.06, headR = o.head || 0.2, headLen = o.headLen || 0.5;
+    var dir = new THREE.Vector3().subVectors(to, from);
+    var L = dir.length();
+    if (L < 1e-6) return null;
+    var g = new THREE.Group();
+    g.position.copy(from);
+    g.quaternion.setFromUnitVectors(UP, dir.clone().normalize());
+    var hl = Math.min(headLen, L * 0.45);
+    var gap = o.double ? hl * 0.8 : 0;
+    var mat = new THREE.MeshLambertMaterial({ color: color });
+    var shaftLen = Math.max(L - gap - hl * 0.5, 0.01);
+    var shaft = new THREE.Mesh(new THREE.CylinderGeometry(shaftR, shaftR, shaftLen, 16), mat);
+    shaft.position.y = shaftLen / 2;
+    g.add(shaft);
+    var cone = new THREE.Mesh(new THREE.ConeGeometry(headR, hl, 24), mat);
+    cone.position.y = L - hl / 2;
+    g.add(cone);
+    if (o.double) {
+      var cone2 = new THREE.Mesh(new THREE.ConeGeometry(headR, hl, 24), mat);
+      cone2.position.y = L - gap - hl / 2;
+      g.add(cone2);
+    }
+    return g;
+  }
+
+  /* Circle around normal n. Increasing t turns counterclockwise when viewed from the tip of n. */
+  function basis(n) {
+    var a = Math.abs(n.y) < 0.9 ? new THREE.Vector3(0, 1, 0) : new THREE.Vector3(1, 0, 0);
+    var u = a.clone().sub(n.clone().multiplyScalar(a.dot(n))).normalize();
+    var v = new THREE.Vector3().crossVectors(n, u);
+    return { u: u, v: v };
+  }
+  function arcAt(c, b, r, t) {
+    return c.clone().add(b.u.clone().multiplyScalar(r * Math.cos(t))).add(b.v.clone().multiplyScalar(r * Math.sin(t)));
+  }
+  function spinArc(center, n, r, t0, span, color, tube, headR) {
+    var b = basis(n), pts = [], N = 80, i;
+    for (i = 0; i <= N; i++) pts.push(arcAt(center, b, r, t0 + span * i / N));
+    var g = new THREE.Group();
+    var mat = new THREE.MeshLambertMaterial({ color: color });
+    g.add(new THREE.Mesh(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pts), 100, tube, 8, false), mat));
+    var tEnd = t0 + span;
+    var tan = b.u.clone().multiplyScalar(-Math.sin(tEnd)).add(b.v.clone().multiplyScalar(Math.cos(tEnd))).normalize();
+    var hl = headR * 2.6;
+    var cone = new THREE.Mesh(new THREE.ConeGeometry(headR, hl, 20), mat);
+    cone.position.copy(pts[N]).add(tan.clone().multiplyScalar(hl / 2));
+    cone.quaternion.setFromUnitVectors(UP, tan);
+    g.add(cone);
+    return { group: g, at: function (f) { return arcAt(center, b, r, t0 + span * f); } };
+  }
+
+  function label(text, color, size) {
+    var c = document.createElement('canvas');
+    c.width = 128; c.height = 128;
+    var x = c.getContext('2d');
+    x.font = '600 76px "IBM Plex Mono", ui-monospace, Menlo, monospace';
+    x.textAlign = 'center'; x.textBaseline = 'middle';
+    x.fillStyle = color;
+    x.fillText(text, 64, 68);
+    var tex = new THREE.CanvasTexture(c);
+    var s = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, depthTest: false, transparent: true }));
+    s.scale.set(size || 0.8, size || 0.8, 1);
+    s.renderOrder = 10;
+    return s;
+  }
+  function line(points, color, opacity, dashed) {
+    var geo = new THREE.BufferGeometry().setFromPoints(points);
+    var mat = dashed
+      ? new THREE.LineDashedMaterial({ color: color, dashSize: 0.16, gapSize: 0.12, transparent: true, opacity: opacity })
+      : new THREE.LineBasicMaterial({ color: color, transparent: true, opacity: opacity });
+    var l = new THREE.Line(geo, mat);
+    if (dashed) l.computeLineDistances();
+    return l;
+  }
+  function clearGroup(g) {
+    while (g.children.length) {
+      var o = g.children[0];
+      g.remove(o);
+      o.traverse(function (c) {
+        if (c.geometry) c.geometry.dispose();
+        if (c.material) { if (c.material.map) c.material.map.dispose(); c.material.dispose(); }
+      });
+    }
+  }
+
+  /* ---------- scene build ---------- */
+  var dots = [], spinPath = null;
+  var AX = [
+    { k: 'x', dir: [1, 0, 0], col: 'ax-x' },
+    { k: 'y', dir: [0, 1, 0], col: 'ax-y' },
+    { k: 'z', dir: [0, 0, 1], col: 'ax-z' }
+  ];
+
+  function rebuild() {
+    clearGroup(world);
+    dots = []; spinPath = null;
+
+    var showComps = $('tComps').checked, showSpin = $('tSpin').checked, showCompSpin = $('tCompSpin').checked;
+    var M = [state.x, state.y, state.z];
+    var mag = Math.hypot(M[0], M[1], M[2]);
+    var nice = niceCeil(mag);
+    var scale = 4 / nice;
+
+    var grid = new THREE.GridHelper(10, 10, colors['grid'], colors['grid']);
+    grid.material.transparent = true; grid.material.opacity = 0.55;
+    world.add(grid);
+
+    AX.forEach(function (a) {
+      var d = E(a.dir[0], a.dir[1], a.dir[2]);
+      var col = colors[a.col];
+      var pos = arrow(new THREE.Vector3(), d.clone().multiplyScalar(5), col, { shaft: 0.02, head: 0.1, headLen: 0.28 });
+      if (pos) world.add(pos);
+      world.add(line([new THREE.Vector3(), d.clone().multiplyScalar(-5)], col, 0.35, false));
+      var s = label(a.k, col, 0.8);
+      s.position.copy(d.clone().multiplyScalar(5.6));
+      world.add(s);
+    });
+
+    if (mag < 1e-12) return;
+
+    var mv = E(M[0] * scale, M[1] * scale, M[2] * scale);
+    var n = mv.clone().normalize();
+    var len = mv.length();
+
+    if (showComps) {
+      var p0 = new THREE.Vector3(), p1 = E(M[0] * scale, 0, 0), p2 = E(M[0] * scale, M[1] * scale, 0), p3 = mv.clone();
+      world.add(line([p0, p1, p2, p3], colors['muted'], 0.8, true));
+      for (var i = 0; i < 3; i++) {
+        if (Math.abs(M[i]) < 1e-12) continue;
+        var dv = E(AX[i].dir[0] * M[i] * scale, AX[i].dir[1] * M[i] * scale, AX[i].dir[2] * M[i] * scale);
+        var ca = arrow(new THREE.Vector3(), dv, colors[AX[i].col], { shaft: 0.045, head: 0.14, headLen: 0.36, double: true });
+        if (ca) world.add(ca);
+      }
+    }
+
+    if (showCompSpin) {
+      for (var j = 0; j < 3; j++) {
+        if (Math.abs(M[j]) < 1e-12) continue;
+        var sg = M[j] > 0 ? 1 : -1;
+        var ad = E(AX[j].dir[0] * sg, AX[j].dir[1] * sg, AX[j].dir[2] * sg);
+        var arcC = spinArc(ad.clone().multiplyScalar(1.5), ad, 0.5, 0.4, Math.PI * 1.45, colors[AX[j].col], 0.028, 0.1);
+        world.add(arcC.group);
+      }
+    }
+
+    var res = arrow(new THREE.Vector3(), mv, colors['accent'], { shaft: 0.08, head: 0.24, headLen: 0.6, double: true });
+    if (res) world.add(res);
+    var ml = label('M', colors['accent'], 0.95);
+    ml.position.copy(mv.clone().add(n.clone().multiplyScalar(0.85)));
+    world.add(ml);
+
+    if (showSpin) {
+      var center = n.clone().multiplyScalar(len * 0.62);
+      var sp = spinArc(center, n, 0.95, 0.35, Math.PI * 1.5, colors['accent'], 0.05, 0.17);
+      world.add(sp.group);
+      spinPath = sp;
+      var dm = new THREE.MeshBasicMaterial({ color: colors['fg'] });
+      for (var k = 0; k < 3; k++) {
+        var dot = new THREE.Mesh(new THREE.SphereGeometry(0.1, 16, 16), dm);
+        world.add(dot);
+        dots.push(dot);
+      }
+      stepDots(0);
+    }
+  }
+
+  var reduce = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  function stepDots(t) {
+    if (!spinPath) return;
+    for (var i = 0; i < dots.length; i++) {
+      var f = reduce ? (i + 0.5) / dots.length : ((t * 0.00018 + i / dots.length) % 1);
+      dots[i].position.copy(spinPath.at(f));
+    }
+  }
+  function loop(t) {
+    stepDots(t);
+    renderer.render(scene, camera);
+    requestAnimationFrame(loop);
+  }
+
+  /* ---------- readouts ---------- */
+  function axisSense(v, axis) {
+    if (Math.abs(v) < 1e-12) return 'No rotation about ' + axis;
+    return (v > 0 ? 'Counterclockwise' : 'Clockwise') + ' looking from +' + axis.slice(1) + ' toward the origin';
+  }
+  function update() {
+    var M = [state.x, state.y, state.z];
+    var mag = Math.hypot(M[0], M[1], M[2]);
+    var u = state.unit;
+    $('mag').textContent = fmt(mag);
+    $('magUnit').textContent = u;
+    var nice = niceCeil(mag);
+    $('scaleBadge').textContent = mag < 1e-12 ? 'zero moment' : 'one grid square = ' + fmt(nice / 4, 4) + ' ' + u;
+
+    if (mag < 1e-12) {
+      $('unitVec').textContent = '0, 0, 0';
+      $('angX').textContent = $('angY').textContent = $('angZ').textContent = '–';
+      $('glyph').textContent = '○';
+      $('spinTitle').textContent = 'No rotation';
+      $('spinText').textContent = 'All three components are zero, so there is no resultant moment.';
+    } else {
+      $('unitVec').textContent = M.map(function (c) { return fmt(c / mag, 3); }).join(', ');
+      ['angX', 'angY', 'angZ'].forEach(function (id, i) {
+        $(id).textContent = fmt(Math.acos(Math.max(-1, Math.min(1, M[i] / mag))) * 180 / Math.PI, 1) + '°';
+      });
+      $('glyph').textContent = '↺';
+      $('spinTitle').textContent = 'Counterclockwise about M';
+      $('spinText').textContent = 'Look at the arrow head-on from its tip, back toward the origin. The body turns counterclockwise. Curl the fingers of your right hand that way and your thumb points along M.';
+    }
+    var rows = [['Mx', M[0], 'x'], ['My', M[1], 'y'], ['Mz', M[2], 'z']].map(function (r) {
+      return '<tr><td>' + r[0] + ' = ' + fmt(r[1]) + '</td><td>' + axisSense(r[1], r[0]) + '</td></tr>';
+    }).join('');
+    $('compTable').querySelector('tbody').innerHTML = rows;
+    rebuild();
+  }
+
+  function readInputs() {
+    state.x = parseFloat($('mx').value) || 0;
+    state.y = parseFloat($('my').value) || 0;
+    state.z = parseFloat($('mz').value) || 0;
+    update();
+  }
+  ['mx', 'my', 'mz'].forEach(function (id) { $(id).addEventListener('input', readInputs); });
+  $('unit').addEventListener('change', function () { state.unit = $('unit').value; update(); });
+  ['tComps', 'tSpin', 'tCompSpin'].forEach(function (id) { $(id).addEventListener('change', rebuild); });
+  Array.prototype.forEach.call(document.querySelectorAll('.chip'), function (b) {
+    b.addEventListener('click', function () {
+      var v = b.getAttribute('data-v').split(',');
+      $('mx').value = v[0]; $('my').value = v[1]; $('mz').value = v[2];
+      readInputs();
+    });
+  });
+
+  /* ---------- theme changes ---------- */
+  function themeChanged() { readColors(); rebuild(); }
+  new MutationObserver(themeChanged).observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
+  if (window.matchMedia) {
+    var mq = window.matchMedia('(prefers-color-scheme: dark)');
+    if (mq.addEventListener) mq.addEventListener('change', themeChanged);
+  }
+  if (document.fonts && document.fonts.ready) document.fonts.ready.then(rebuild);
+
+  placeCam();
+  resize();
+  update();
+  requestAnimationFrame(loop);
+})();
+</script>
+
+</body></html>
